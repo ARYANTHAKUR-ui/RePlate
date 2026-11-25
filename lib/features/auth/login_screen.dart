@@ -1,10 +1,9 @@
-
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/services/api_service.dart';
-import '../food/post_food_screen.dart';
-import '../home/home_screen.dart';
+import '../home/ngo_dashboard_screen.dart';
+import '../food/hotel_dashboard_screen.dart';
 import 'auth_storage.dart';
 import 'register_screen.dart';
 
@@ -46,7 +45,6 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  // Authenticate through the RePlate backend.
   Future<void> _login() async {
     if (_loading) return;
     if (!_formKey.currentState!.validate()) return;
@@ -67,7 +65,6 @@ class _LoginScreenState extends State<LoginScreen> {
         throw Exception('Invalid login response from server.');
       }
 
-      // Securely save the token and user details.
       await AuthStorage.saveSession(
         token: token,
         user: user,
@@ -75,17 +72,29 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      final Widget destination = _isHotel
-          ? const PostFoodScreen()
-          : const HomeScreen(role: 'NGO / Organization');
+      // Debug messages: check the terminal after login.
+      debugPrint('LOGIN ROLE: ${widget.role}');
+      debugPrint('IS HOTEL: $_isHotel');
 
-      // Remove login from the navigation stack after success.
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => destination,
-        ),
-      );
+      if (_isHotel) {
+        debugPrint('DESTINATION: HotelDashboardScreen');
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const HotelDashboardScreen(),
+          ),
+        );
+      } else {
+        debugPrint('DESTINATION: NgoDashboardScreen');
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const NgoDashboardScreen(),
+          ),
+        );
+      }
     } catch (error) {
       if (!mounted) return;
 
@@ -164,55 +173,51 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Container(
-                    height: 85,
-                    width: 85,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: _isHotel
-                          ? AppColors.lightOrange
-                          : AppColors.lightGreen,
-                      borderRadius: BorderRadius.circular(25),
-                    ),
-                    child: Icon(
-                      _isHotel
-                          ? Icons.storefront_rounded
-                          : Icons.volunteer_activism_rounded,
-                      size: 43,
-                      color: _roleColor,
+                  Center(
+                    child: Container(
+                      height: 85,
+                      width: 85,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: _isHotel
+                            ? AppColors.lightOrange
+                            : AppColors.lightGreen,
+                        borderRadius: BorderRadius.circular(25),
+                      ),
+                      child: Icon(
+                        _isHotel
+                            ? Icons.storefront_rounded
+                            : Icons.volunteer_activism_rounded,
+                        size: 43,
+                        color: _roleColor,
+                      ),
                     ),
                   ),
-
                   const SizedBox(height: 24),
-
                   const Text(
                     'Welcome to RePlate',
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       color: AppColors.brown,
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-
                   const SizedBox(height: 8),
-
                   Text(
                     _roleDescription,
+                    textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: AppColors.textBrown,
                       fontSize: 15,
                       height: 1.5,
                     ),
                   ),
-
                   const SizedBox(height: 30),
-
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    autofillHints: const [
-                      AutofillHints.email,
-                    ],
+                    autofillHints: const [AutofillHints.email],
                     decoration: _decoration(
                       label: 'Email address',
                       icon: Icons.email_outlined,
@@ -229,15 +234,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       return null;
                     },
                   ),
-
                   const SizedBox(height: 18),
-
                   TextFormField(
                     controller: _passwordController,
                     obscureText: _hidePassword,
-                    autofillHints: const [
-                      AutofillHints.password,
-                    ],
+                    autofillHints: const [AutofillHints.password],
+                    onFieldSubmitted: (_) {
+                      if (!_loading) _login();
+                    },
                     decoration: _decoration(
                       label: 'Password',
                       icon: Icons.lock_outline_rounded,
@@ -264,9 +268,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       return null;
                     },
                   ),
-
                   const SizedBox(height: 26),
-
                   SizedBox(
                     height: 54,
                     child: ElevatedButton(
@@ -296,9 +298,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 20),
-
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -333,9 +333,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 10),
-
                   const Text(
                     'Good Food. Second Chances.',
                     textAlign: TextAlign.center,

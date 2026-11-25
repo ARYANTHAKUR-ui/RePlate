@@ -1,6 +1,7 @@
 
 const express = require('express');
 const mongoose = require('mongoose');
+const cors = require('cors');
 require('dotenv').config();
 
 // Import routes
@@ -11,6 +12,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
+// Enable cross-origin requests for Flutter Web during development.
+app.use(cors());
+
 app.use(express.json({ limit: '100kb' }));
 
 // Root route
@@ -64,18 +68,19 @@ async function startServer() {
 
     console.log('MongoDB connected successfully!');
 
-    // Start Express server
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(
-        `RePlate API running at http://localhost:${PORT}`
-      );
+    // Listen on all IPv4 interfaces so physical devices
+    // can reach the backend over the local network.
+    const server = app.listen(PORT, '0.0.0.0', () => {
+      console.log(`RePlate API running on port ${PORT}`);
+      console.log(`Local API: http://localhost:${PORT}`);
+      console.log(`Health check: http://localhost:${PORT}/api/health`);
+    });
+
+    server.on('error', (error) => {
+      console.error('Express server error:', error.message);
     });
   } catch (error) {
-    console.error(
-      'Backend startup failed:',
-      error.message
-    );
-
+    console.error('Backend startup failed:', error.message);
     process.exit(1);
   }
 }

@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/location_service.dart';
 import '../../core/theme/app_colors.dart';
+import '../auth/auth_storage.dart';
 import 'food_item.dart';
 
 class PostFoodScreen extends StatefulWidget {
@@ -71,12 +72,6 @@ class _PostFoodScreenState extends State<PostFoodScreen> {
         _isGettingLocation = false;
         _locationError = null;
       });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Pickup GPS location captured!'),
-        ),
-      );
     } catch (e) {
       if (!mounted) return;
 
@@ -92,7 +87,6 @@ class _PostFoodScreenState extends State<PostFoodScreen> {
 
   Future<void> _publishFood() async {
     if (_isPublishing) return;
-
     if (!_formKey.currentState!.validate()) return;
 
     if (_hotelPosition == null) {
@@ -111,60 +105,55 @@ class _PostFoodScreenState extends State<PostFoodScreen> {
       return;
     }
 
-    final peopleCount = int.parse(
-      _peopleController.text.trim(),
-    );
-
-    final food = FoodItem(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
-      name: _nameController.text.trim(),
-      peopleCount: peopleCount,
-      category: _category,
-      providerName: 'My Hotel',
-      location: _locationController.text.trim(),
-      description: _descriptionController.text.trim().isEmpty
-          ? 'No additional details provided.'
-          : _descriptionController.text.trim(),
-      expiresAt: DateTime.now().add(
-        Duration(hours: _expiryHours),
-      ),
-      latitude: _hotelPosition!.latitude,
-      longitude: _hotelPosition!.longitude,
-    );
-
-    setState(() {
-      _isPublishing = true;
-    });
+    setState(() => _isPublishing = true);
 
     try {
-      // Send the donation to the Node.js API and MongoDB.
+      // Read the logged-in account's saved name.
+      final user = await AuthStorage.getUser();
+      final savedName = user?['name'];
+
+      final hotelName =
+      savedName is String && savedName.trim().isNotEmpty
+          ? savedName.trim()
+          : 'My Hotel';
+
+      final peopleCount = int.parse(
+        _peopleController.text.trim(),
+      );
+
+      final food = FoodItem(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        name: _nameController.text.trim(),
+        peopleCount: peopleCount,
+        category: _category,
+        providerName: hotelName,
+        location: _locationController.text.trim(),
+        description: _descriptionController.text.trim().isEmpty
+            ? 'No additional details provided.'
+            : _descriptionController.text.trim(),
+        expiresAt: DateTime.now().add(
+          Duration(hours: _expiryHours),
+        ),
+        latitude: _hotelPosition!.latitude,
+        longitude: _hotelPosition!.longitude,
+      );
+
+      // Wait for the backend to confirm the donation was saved.
       await ApiService.createFood(food);
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Food donation published successfully!'),
-          backgroundColor: AppColors.green,
-        ),
-      );
-
-      _nameController.clear();
-      _peopleController.clear();
-      _locationController.clear();
-      _descriptionController.clear();
-
-      setState(() {
-        _category = 'Meals';
-        _expiryHours = 6;
-      });
+      // Return to the existing dashboard with a success result.
+      // HotelDashboardScreen will refresh its donations.
+      Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Could not publish donation: $e',
+            'Could not publish donation: '
+                '${e.toString().replaceFirst('Exception: ', '')}',
           ),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 6),
@@ -172,9 +161,7 @@ class _PostFoodScreenState extends State<PostFoodScreen> {
       );
     } finally {
       if (mounted) {
-        setState(() {
-          _isPublishing = false;
-        });
+        setState(() => _isPublishing = false);
       }
     }
   }
@@ -417,9 +404,7 @@ class _PostFoodScreenState extends State<PostFoodScreen> {
                     ? null
                     : (value) {
                   if (value == null) return;
-                  setState(() {
-                    _category = value;
-                  });
+                  setState(() => _category = value);
                 },
               ),
 

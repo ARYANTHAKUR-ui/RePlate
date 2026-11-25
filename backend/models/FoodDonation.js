@@ -3,58 +3,95 @@ const mongoose = require('mongoose');
 
 const foodDonationSchema = new mongoose.Schema(
   {
+    // Basic food donation details
     name: {
       type: String,
-      required: true,
+      required: [true, 'Food name is required.'],
       trim: true,
-      maxlength: 100,
     },
+
     peopleCount: {
       type: Number,
-      required: true,
-      min: 1,
+      required: [true, 'Number of people is required.'],
+      min: [1, 'People count must be at least 1.'],
     },
+
     category: {
       type: String,
-      required: true,
+      required: [true, 'Food category is required.'],
       enum: ['Meals', 'Snacks', 'Bakery', 'Fruits', 'Other'],
+      default: 'Meals',
     },
+
     providerName: {
       type: String,
-      required: true,
+      required: [true, 'Provider name is required.'],
       trim: true,
     },
+
     location: {
       type: String,
-      required: true,
+      required: [true, 'Pickup location is required.'],
       trim: true,
     },
+
     description: {
       type: String,
-      required: true,
+      default: '',
       trim: true,
-      maxlength: 1000,
     },
+
+    // Food expiry and pickup coordinates
     expiresAt: {
       type: Date,
-      required: true,
+      required: [true, 'Food expiry time is required.'],
+      index: true,
     },
+
     latitude: {
       type: Number,
       default: null,
-      min: -90,
-      max: 90,
     },
+
     longitude: {
       type: Number,
       default: null,
-      min: -180,
-      max: 180,
     },
+
+    // Hotel account that created the donation
+    owner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+      index: true,
+    },
+
+    // Donation lifecycle
     status: {
       type: String,
       enum: ['available', 'claimed', 'collected', 'expired'],
       default: 'available',
+      index: true,
+    },
+
+    // NGO account that accepted the donation
+    claimedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+      index: true,
+    },
+
+    // Date when the NGO accepted the donation
+    claimedAt: {
+      type: Date,
+      default: null,
+    },
+
+    // Date when the NGO collected the food
+    collectedAt: {
+      type: Date,
+      default: null,
     },
   },
   {
@@ -62,9 +99,14 @@ const foodDonationSchema = new mongoose.Schema(
   }
 );
 
-const FoodDonation = mongoose.model(
+// Helpful compound index for an NGO's donation history.
+foodDonationSchema.index({
+  claimedBy: 1,
+  status: 1,
+  claimedAt: -1,
+});
+
+module.exports = mongoose.model(
   'FoodDonation',
   foodDonationSchema
 );
-
-module.exports = FoodDonation;

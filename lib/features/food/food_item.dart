@@ -11,6 +11,11 @@ class FoodItem {
   final double? latitude;
   final double? longitude;
 
+  // Donation tracking fields
+  final String status;
+  final DateTime? claimedAt;
+  final DateTime? collectedAt;
+
   const FoodItem({
     required this.id,
     required this.name,
@@ -22,6 +27,9 @@ class FoodItem {
     required this.expiresAt,
     this.latitude,
     this.longitude,
+    this.status = 'available',
+    this.claimedAt,
+    this.collectedAt,
   });
 
   // Convert a donation received from the backend into a FoodItem.
@@ -40,6 +48,13 @@ class FoodItem {
           DateTime.now(),
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
+      status: json['status'] as String? ?? 'available',
+      claimedAt: DateTime.tryParse(
+        json['claimedAt']?.toString() ?? '',
+      ),
+      collectedAt: DateTime.tryParse(
+        json['collectedAt']?.toString() ?? '',
+      ),
     );
   }
 
@@ -55,6 +70,9 @@ class FoodItem {
       'expiresAt': expiresAt.toUtc().toIso8601String(),
       'latitude': latitude,
       'longitude': longitude,
+      'status': status,
+      'claimedAt': claimedAt?.toUtc().toIso8601String(),
+      'collectedAt': collectedAt?.toUtc().toIso8601String(),
     };
   }
 
@@ -77,4 +95,10 @@ class FoodItem {
 
     return '${difference.inMinutes < 1 ? 1 : difference.inMinutes}m left';
   }
+
+  bool get isAvailable => status == 'available';
+
+  bool get isClaimed => status == 'claimed';
+
+  bool get isCollected => status == 'collected';
 }

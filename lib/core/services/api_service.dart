@@ -4,105 +4,242 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../../features/auth/auth_storage.dart';
 import '../../features/food/food_item.dart';
 
 class ApiService {
-  // Android Emulator connects to your computer's localhost through 10.0.2.2.
-  static const String baseUrl = 'http://192.168.16.114:3000/api';
+  // Chrome/web runs on the same computer as the backend.
+  // Android emulator uses 10.0.2.2 instead of localhost.
+  // Physical phones need your computer's current Wi-Fi IPv4 address.
+  static const String baseUrl = kIsWeb
+      ? 'http://localhost:3000/api'
+      : 'http://10.45.154.214:3000/api';
 
-  // --------------------------------------------------
-  // GET ALL FOOD DONATIONS
-  // --------------------------------------------------
+  static Map<String, String> get _jsonHeaders => {
+    'Content-Type': 'application/json',
+  };
+
+  static Future<Map<String, String>> _authHeaders() async {
+    final token = await AuthStorage.getToken();
+
+    if (token == null || token.isEmpty) {
+      throw Exception('Please log in again to continue.');
+    }
+
+    return {
+      ..._jsonHeaders,
+      'Authorization': 'Bearer $token',
+    };
+  }
+
+  // ========================================
+  // GET AVAILABLE FOOD DONATIONS
+  // GET /api/food
+  // ========================================
   static Future<List<FoodItem>> getFoods() async {
     final url = Uri.parse('$baseUrl/food');
 
-    debugPrint('REPLATE: Requesting donations from $url');
+    debugPrint('REPLATE: Fetching available donations from $url');
 
     try {
       final response = await http.get(url);
+      final result = _decodeResponse(response);
+      final donations = result['data'] as List<dynamic>? ?? [];
 
-      debugPrint('REPLATE: HTTP status = ${response.statusCode}');
-      debugPrint('REPLATE: Response body = ${response.body}');
-
-      if (response.statusCode != 200) {
-        throw Exception(
-          'Failed to load donations: HTTP ${response.statusCode}',
-        );
-      }
-
-      final Map<String, dynamic> result =
-      jsonDecode(response.body) as Map<String, dynamic>;
-
-      final List<dynamic> donations =
-          result['data'] as List<dynamic>? ?? [];
-
-      debugPrint(
-        'REPLATE: Donations received = ${donations.length}',
-      );
-
-      final foods = donations.map((json) {
-        return FoodItem.fromJson(
-          json as Map<String, dynamic>,
-        );
-      }).toList();
-
-      return foods;
+      return donations
+          .map(
+            (item) => FoodItem.fromJson(
+          item as Map<String, dynamic>,
+        ),
+      )
+          .toList();
     } catch (e) {
       debugPrint('REPLATE: getFoods error = $e');
       rethrow;
     }
   }
 
-  // --------------------------------------------------
+  // ========================================
+  // GET MY HOTEL DONATIONS
+  // GET /api/food/mine
+  // ========================================
+  static Future<List<FoodItem>> getMyFoods() async {
+    final url = Uri.parse('$baseUrl/food/mine');
+
+    debugPrint('REPLATE: Fetching hotel donations from $url');
+
+    try {
+      final response = await http.get(
+        url,
+        headers: await _authHeaders(),
+      );
+
+      final result = _decodeResponse(response);
+      final donations = result['data'] as List<dynamic>? ?? [];
+
+      return donations
+          .map(
+            (item) => FoodItem.fromJson(
+          item as Map<String, dynamic>,
+        ),
+      )
+          .toList();
+    } catch (e) {
+      debugPrint('REPLATE: getMyFoods error = $e');
+      rethrow;
+    }
+  }
+
+  // ========================================
+  // GET MY ACCEPTED NGO DONATIONS
+  // GET /api/food/accepted
+  // ========================================
+  static Future<List<FoodItem>> getAcceptedFoods() async {
+    final url = Uri.parse('$baseUrl/food/accepted');
+
+    debugPrint('REPLATE: Fetching accepted donations from $url');
+
+    try {
+      final response = await http.get(
+        url,
+        headers: await _authHeaders(),
+      );
+
+      final result = _decodeResponse(response);
+      final donations = result['data'] as List<dynamic>? ?? [];
+
+      return donations
+          .map(
+            (item) => FoodItem.fromJson(
+          item as Map<String, dynamic>,
+        ),
+      )
+          .toList();
+    } catch (e) {
+      debugPrint('REPLATE: getAcceptedFoods error = $e');
+      rethrow;
+    }
+  }
+
+  // ========================================
+  // ACCEPT A FOOD DONATION
+  // PATCH /api/food/:id/accept
+  // NGO only
+  // ========================================
+  static Future<FoodItem> acceptFood(String foodId) async {
+    final url = Uri.parse('$baseUrl/food/$foodId/accept');
+
+    debugPrint('REPLATE: Accepting donation $foodId');
+
+    try {
+      final response = await http.patch(
+        url,
+        headers: await _authHeaders(),
+      );
+
+      final result = _decodeResponse(response);
+
+      return FoodItem.fromJson(
+        result['data'] as Map<String, dynamic>,
+      );
+    } catch (e) {
+      debugPrint('REPLATE: acceptFood error = $e');
+      rethrow;
+    }
+  }
+
+  // ========================================
+  // MARK FOOD AS COLLECTED
+  // PATCH /api/food/:id/collect
+  // NGO that accepted it only
+  // ========================================
+  static Future<FoodItem> markFoodCollected(String foodId) async {
+    final url = Uri.parse('$baseUrl/food/$foodId/collect');
+
+    debugPrint('REPLATE: Marking donation $foodId as collected');
+
+    try {
+      final response = await http.patch(
+        url,
+        headers: await _authHeaders(),
+      );
+
+      final result = _decodeResponse(response);
+
+      return FoodItem.fromJson(
+        result['data'] as Map<String, dynamic>,
+      );
+    } catch (e) {
+      debugPrint('REPLATE: markFoodCollected error = $e');
+      rethrow;
+    }
+  }
+
+  // ========================================
   // CREATE FOOD DONATION
-  // --------------------------------------------------
+  // POST /api/food
+  // Hotel only
+  // ========================================
   static Future<FoodItem> createFood(FoodItem food) async {
     final url = Uri.parse('$baseUrl/food');
 
     debugPrint('REPLATE: Publishing donation to $url');
 
-    final response = await http.post(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'name': food.name,
-        'peopleCount': food.peopleCount,
-        'category': food.category,
-        'providerName': food.providerName,
-        'location': food.location,
-        'description': food.description,
-        'expiresAt': food.expiresAt.toUtc().toIso8601String(),
-        'latitude': food.latitude,
-        'longitude': food.longitude,
-      }),
-    );
-
-    debugPrint(
-      'REPLATE: Create food status = ${response.statusCode}',
-    );
-    debugPrint(
-      'REPLATE: Create food response = ${response.body}',
-    );
-
-    if (response.statusCode != 201) {
-      throw Exception(
-        'Failed to publish donation: ${response.body}',
+    try {
+      final response = await http.post(
+        url,
+        headers: await _authHeaders(),
+        body: jsonEncode({
+          'name': food.name,
+          'peopleCount': food.peopleCount,
+          'category': food.category,
+          'providerName': food.providerName,
+          'location': food.location,
+          'description': food.description,
+          'expiresAt': food.expiresAt.toUtc().toIso8601String(),
+          'latitude': food.latitude,
+          'longitude': food.longitude,
+        }),
       );
+
+      final result = _decodeResponse(response);
+
+      return FoodItem.fromJson(
+        result['data'] as Map<String, dynamic>,
+      );
+    } catch (e) {
+      debugPrint('REPLATE: createFood error = $e');
+      rethrow;
     }
-
-    final Map<String, dynamic> result =
-    jsonDecode(response.body) as Map<String, dynamic>;
-
-    return FoodItem.fromJson(
-      result['data'] as Map<String, dynamic>,
-    );
   }
 
-  // --------------------------------------------------
-  // REGISTER USER
-  // --------------------------------------------------
+  // ========================================
+  // DELETE FOOD DONATION
+  // DELETE /api/food/:id
+  // Hotel owner only
+  // ========================================
+  static Future<void> deleteFood(String id) async {
+    final url = Uri.parse('$baseUrl/food/$id');
+
+    debugPrint('REPLATE: Deleting donation $id');
+
+    try {
+      final response = await http.delete(
+        url,
+        headers: await _authHeaders(),
+      );
+
+      _decodeResponse(response);
+    } catch (e) {
+      debugPrint('REPLATE: deleteFood error = $e');
+      rethrow;
+    }
+  }
+
+  // ========================================
+  // REGISTER ACCOUNT
+  // POST /api/auth/register
+  // ========================================
   static Future<Map<String, dynamic>> register({
     required String name,
     required String email,
@@ -111,34 +248,43 @@ class ApiService {
   }) async {
     final url = Uri.parse('$baseUrl/auth/register');
 
-    debugPrint('REPLATE: Registering user at $url');
+    debugPrint('REPLATE: Registering account');
 
-    final response = await http.post(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'name': name,
-        'email': email,
-        'password': password,
-        'role': role,
-      }),
-    );
+    try {
+      final response = await http.post(
+        url,
+        headers: _jsonHeaders,
+        body: jsonEncode({
+          'name': name,
+          'email': email,
+          'password': password,
+          'role': role,
+        }),
+      );
 
-    debugPrint(
-      'REPLATE: Register status = ${response.statusCode}',
-    );
-    debugPrint(
-      'REPLATE: Register response = ${response.body}',
-    );
+      final result = _decodeResponse(response);
 
-    return _decodeResponse(response);
+      final token = result['token'];
+      final user = result['user'];
+
+      if (token is String && user is Map<String, dynamic>) {
+        await AuthStorage.saveSession(
+          token: token,
+          user: user,
+        );
+      }
+
+      return result;
+    } catch (e) {
+      debugPrint('REPLATE: register error = $e');
+      rethrow;
+    }
   }
 
-  // --------------------------------------------------
-  // LOGIN USER
-  // --------------------------------------------------
+  // ========================================
+  // LOGIN ACCOUNT
+  // POST /api/auth/login
+  // ========================================
   static Future<Map<String, dynamic>> login({
     required String email,
     required String password,
@@ -146,33 +292,41 @@ class ApiService {
   }) async {
     final url = Uri.parse('$baseUrl/auth/login');
 
-    debugPrint('REPLATE: Logging in at $url');
+    debugPrint('REPLATE: Logging in');
 
-    final response = await http.post(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'email': email,
-        'password': password,
-        'role': role,
-      }),
-    );
+    try {
+      final response = await http.post(
+        url,
+        headers: _jsonHeaders,
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+          'role': role,
+        }),
+      );
 
-    debugPrint(
-      'REPLATE: Login status = ${response.statusCode}',
-    );
-    debugPrint(
-      'REPLATE: Login response = ${response.body}',
-    );
+      final result = _decodeResponse(response);
 
-    return _decodeResponse(response);
+      final token = result['token'];
+      final user = result['user'];
+
+      if (token is String && user is Map<String, dynamic>) {
+        await AuthStorage.saveSession(
+          token: token,
+          user: user,
+        );
+      }
+
+      return result;
+    } catch (e) {
+      debugPrint('REPLATE: login error = $e');
+      rethrow;
+    }
   }
 
-  // --------------------------------------------------
-  // DECODE API RESPONSE
-  // --------------------------------------------------
+  // ========================================
+  // DECODE SERVER RESPONSE
+  // ========================================
   static Map<String, dynamic> _decodeResponse(
       http.Response response,
       ) {
@@ -192,10 +346,9 @@ class ApiService {
       return result;
     }
 
-    final message =
-        result['message'] ??
-            result['error'] ??
-            'Request failed with HTTP ${response.statusCode}';
+    final message = result['message'] ??
+        result['error'] ??
+        'Request failed with HTTP ${response.statusCode}.';
 
     throw Exception(message.toString());
   }

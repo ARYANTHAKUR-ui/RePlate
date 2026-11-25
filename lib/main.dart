@@ -1,7 +1,8 @@
 
 import 'package:flutter/material.dart';
-import 'features/onboarding/welcome_screen.dart';
+
 import 'core/theme/app_colors.dart';
+import 'features/onboarding/splash_screen.dart';
 
 void main() {
   runApp(const RePlateApp());
@@ -22,7 +23,7 @@ class RePlateApp extends StatelessWidget {
           seedColor: AppColors.orange,
         ),
       ),
-      home: const WelcomeScreen(),
+      home: const SplashScreen(),
     );
   }
 }
